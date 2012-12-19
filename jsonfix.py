@@ -43,7 +43,7 @@ def fixJSON(js):
                     i += 1
                 keystr = ""
                 while js[i] != ":":
-                    if js[i].isalnum() or js[i] in ["_"]:
+                    if js[i].isalnum() or js[i] in "_":
                         if keystr and js[i - 1] == " ":  # Can't have spaces in keys
                             return "Key has space", i - 1
                         keystr += js[i]
@@ -72,7 +72,7 @@ def fixJSON(js):
                 try:
                     numstr = str(eval(numstr))  # Could be octal or hex
                 except:
-                    return "Fail number", i  # Fail silently
+                    return "Fail number", i
                 if maybekey and stack[-1] != "[":  # We're not in a list
                     out += "\"%s\"" % numstr
                 else:
