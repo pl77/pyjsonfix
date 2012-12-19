@@ -92,3 +92,11 @@ def fixJSON(js):
                 out += js[i]
                 i += 1
     return out
+
+if __name__ == "__main__":
+    import json
+    badjson = '{\'ca"ke\': 5.05, pie:[0,0xb,,2,{foo:"foob",bar:\'barb\'}], null:null, false:true, \' \':true, "\'":false, 010: 4,  l3l :  10  }'
+
+    print "Valid javascript, invalid json:\n  %s\n" % badjson
+    print "Fixed json:\n  %s\n" % fixJSON(badjson)
+    print "To python:\n  %s" % str(json.loads(fixJSON(badjson)))
