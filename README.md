@@ -11,14 +11,14 @@ Please note, it hasn't been extensively tested, so I don't know what it'll break
 
 ## Example
 ```python
-bad_json = """{'ca"ke': 5.05, pie:[0,0xb,,2,{foo:"foob",bar:'barb'}], 
+bad_json = """{'ca"ke': 5.05, pie:[0,0xb,,2,{foo:"fo\\43ob",bar:'barb'}], 
 	null:null, false:true, ' ':true, "'":false, 010: 4,  l3l :  10  }"""
 
 from jsonfix import fixJSON
 
 fixed_json = fixJSON(bad_json)
 print fixed_json
-# {"ca\"ke": 5.05, "pie":[0,11,null,2,{"foo":"foob","bar":"barb"}], 
+# {"ca\"ke": 5.05, "pie":[0,11,null,2,{"foo":"fo\u0023ob","bar":"barb"}], 
 #     "null":null, "false":true, " ":true, "'":false, "8": 4,  "l3l":  10  }
 
 import json
@@ -31,5 +31,5 @@ pprint(json.loads(fixed_json))
 # u'false': True,
 # u'l3l': 10,
 # u'null': None,
-# u'pie': [0, 11, None, 2, {u'bar': u'barb', u'foo': u'foob'}]}
+# u'pie': [0, 11, None, 2, {u'bar': u'barb', u'foo': u'fo#ob'}]}
 ```

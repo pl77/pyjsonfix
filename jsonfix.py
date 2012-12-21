@@ -14,6 +14,7 @@ def fixJSON(js):
             escaped_num = None
             while js[i - 1] == "\\" or js[i] != qchar:
                 if escaped_num is not None:
+                    i += 1
                     if js[i].isdigit():
                         escaped_num += js[i]
                     else:
@@ -21,17 +22,15 @@ def fixJSON(js):
                         escaped_num = None
                         ishex = False
                         continue
-                    i += 1
                 else:
                     if js[i - 1] == "\\":
                         if js[i] == "x" or js[i] == "u":
                             escaped_num = ""
+                            i += 1
                             ishex = True
+                            continue
                         elif js[i].isdigit():
                             escaped_num = js[i]
-                        if escaped_num is not None:
-                            out += "\\"
-                            i += 1
                             continue
                     if js[i] == "\"" and js[i - 1] != "\\":
                         out += "\\"
