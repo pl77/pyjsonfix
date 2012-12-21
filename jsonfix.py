@@ -10,13 +10,35 @@ def fixJSON(js):
             qchar = js[i]
             out += "\""
             i += 1
+            ishex = False
+            escaped_num = None
             while js[i - 1] == "\\" or js[i] != qchar:
-                if js[i] == "\"" and js[i - 1] != "\\":
-                    out += "\\"
-                out += js[i]
-                i += 1
-                if i == len(js):  # Truncated?
-                    return "Truncated", i
+                if escaped_num is not None:
+                    if js[i].isdigit():
+                        escaped_num += js[i]
+                    else:
+                        out += "u" + ("0" * 4 + hex(int(escaped_num, 16 if ishex else 8))[2:])[-4:]
+                        escaped_num = None
+                        ishex = False
+                        continue
+                    i += 1
+                else:
+                    if js[i - 1] == "\\":
+                        if js[i] == "x" or js[i] == "u":
+                            escaped_num = ""
+                            ishex = True
+                        elif js[i].isdigit():
+                            escaped_num = js[i]
+                        if escaped_num is not None:
+                            out += "\\"
+                            i += 1
+                            continue
+                    if js[i] == "\"" and js[i - 1] != "\\":
+                        out += "\\"
+                    out += js[i]
+                    i += 1
+                    if i == len(js):  # Truncated?
+                        return "Truncated", i
             out += "\""
             i += 1
             maybekey = False
