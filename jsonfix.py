@@ -1,66 +1,74 @@
 #!/usr/bin/python
 
+def _extractString(data):
+    if data[0] not in "'\"":  # This isn't a string
+        return "", data
+    idx = 1
+    output = "\""
+    is_hex = False
+    prev_char = None
+    escaped_num = None
+    cur_char = data[0]
+    quote_char = data[0]
+    # While current character isn't a quote or
+    # at beginning or previous character is an escape slash
+    while 1:
+        if idx == len(data):  # Truncated?
+            return "Truncated", idx
+        prev_char = cur_char
+        cur_char = data[idx]
+        if cur_char == quote_char and not prev_char == "\\":  # We're at the end quote
+            output += "\""
+            break
+        if escaped_num is not None:
+            if cur_char.isdigit():
+                idx += 1
+                escaped_num += cur_char
+            else:  # We're at the end of the escape, put it on the end of the output
+                output += "u" + ("0" * 4 + hex(int(escaped_num, 16 if is_hex else 8))[2:])[-4:]
+                escaped_num = None
+                continue
+        else:
+            if prev_char == "\\":
+                if cur_char in "xu":  # Start of \x or \u escape
+                    idx += 1
+                    is_hex = True
+                    escaped_num = ""
+                    continue
+                elif cur_char.isdigit():  # Start of octal escape
+                    escaped_num = ""
+                    is_hex = False
+                    continue
+            if quote_char == "'" and cur_char == "\"":
+                output += "\\"
+            output += cur_char
+            idx += 1
+    return output, idx
+
 def fixJSON(js):
     i = 0
-    out = ""
-    maybekey = False
-    stack = []
+    output = ""
+    might_be_a_key = False
+    brace_stack = []
     while i < len(js):
         if js[i] in "'\"":  # Found a string
-            qchar = js[i]
-            out += "\""
-            i += 1
-            ishex = False
-            escaped_num = None
-            while js[i - 1] == "\\" or js[i] != qchar:
-                if escaped_num is not None:
-                    i += 1
-                    if js[i].isdigit():
-                        escaped_num += js[i]
-                    else:
-                        out += "u" + ("0" * 4 + hex(int(escaped_num, 16 if ishex else 8))[2:])[-4:]
-                        escaped_num = None
-                        ishex = False
-                        continue
-                else:
-                    if js[i - 1] == "\\":
-                        if js[i] == "x" or js[i] == "u":
-                            escaped_num = ""
-                            i += 1
-                            ishex = True
-                            continue
-                        elif js[i].isdigit():
-                            escaped_num = js[i]
-                            continue
-                    if js[i] == "\"" and js[i - 1] != "\\":
-                        out += "\\"
-                    out += js[i]
-                    i += 1
-                    if i == len(js):  # Truncated?
-                        return "Truncated", i
-            out += "\""
-            i += 1
-            maybekey = False
+            a, b = _extractString(js[i:])
+            output += a
+            i += b + 1
         else:
             if js[i] in "{}[]":  # Brace of somesort
                 if js[i] in "{[":
-                    stack.append(js[i])
+                    brace_stack.append(js[i])
                 elif js[i] in "]}":
-                    if js[i] != {"[": "]", "{": "}"}[stack.pop()]:
+                    if js[i] != {"[": "]", "{": "}"}[brace_stack.pop()]:
                         return "Brace Mismatch", i  # Brace mismatch
                 if js[i] == "{":  # Start of a hash, whatever comes next might be a key
-                    maybekey = True
-                if js[i] == "]":  # End of list
-                    j = i - 1
-                    while js[j] == " ":
-                        j -= 1
-                    if js[j] == ",":   # List ended with ,
-                        out += "null"
-                out += js[i]
+                    might_be_a_key = True
+                output += js[i]
                 i += 1
-            elif maybekey and js[i].isalpha():  # Might be a key without quotes
+            elif might_be_a_key and js[i].isalpha():  # Might be a key without quotes
                 if js[i] == ",":
-                    out += ","
+                    output += ","
                     i += 1
                 keystr = ""
                 while js[i] != ":":
@@ -74,43 +82,55 @@ def fixJSON(js):
                     if i == len(js):  # Truncated?
                         return "Truncated", i
                 keystr = keystr.strip()
-                out += "\"%s\":" % keystr.strip()
+                output += "\"%s\":" % keystr.strip()
                 i += 1
-                maybekey = False
-            elif (i + 4 < len(js)) and js[i: i + 4] in ["null", "true"]:  # These are valid
-                out += js[i:i + 4]
+                might_be_a_key = False
+            elif js[i: i + 4] in ["null", "true"]:  # These are valid
+                output += js[i:i + 4]
                 i += 4
-            elif (i + 5 < len(js)) and js[i:i + 5] == "false":  # And this
-                out += "false"
+            elif js[i: i + 5] == "false":  # And this
+                output += "false"
                 i += 5
-            elif js[i].isdigit():  # We're a number
+            elif js[i].isdigit():  # We're a number.
                 numstr = ""
                 while js[i].lower() in "0123456789abcdefx.":
                     numstr += js[i]
                     i += 1
                     if i == len(js):
                         return "Truncated", i
-                try:
-                    numstr = str(eval(numstr))  # Could be octal or hex
-                except:
-                    return "Fail number", i
-                if maybekey and stack[-1] != "[":  # We're not in a list
-                    out += "\"%s\"" % numstr
+                base = 10
+                if numstr[:2] == "0x":  # We're hex
+                    base = 16
+                    numstr = numstr[2:]
+                elif numstr[0] == "0":  # We're octal
+                    base = 8
+                if base == 10 and not all([x.isdigit() for x in numstr]):
+                    numstr = str(float(numstr))
                 else:
-                    out += numstr
+                    numstr = str(int(numstr, base))
+                if might_be_a_key and brace_stack[-1] != "[":  # We're not in a list
+                    output += "\"%s\"" % numstr
+                else:
+                    output += numstr
             elif js[i] == ",":  # End of a value
-                j = i - 1
-                while js[j] == " ":
-                    j -= 1
-                if js[j] == ",":  # Last value was empty, probably in a list, put a null
-                    out += "null"
-                out += ","
-                maybekey = True
+                if brace_stack[-1] == "[":  # In a list
+                    j = i - 1
+                    while js[j] == " ":
+                        j -= 1
+                    if js[j] == ",":
+                        output += "null"
+                    if js[i + 1:].strip()[0] == "]":  # List ends with a , so skip it
+                        i += js[i + 1:].index("]")
+                    else:
+                        output += ","
+                else:  # Not a list, so next value might be a key
+                    output += ","
+                    might_be_a_key = True
                 i += 1
             else:  # Only some : and spaces should get here
                 if js[i] == ":":
-                    maybekey = False
-                out += js[i]
+                    might_be_a_key = False
+                output += js[i]
                 i += 1
-    return out
+    return output
 
