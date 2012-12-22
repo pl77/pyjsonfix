@@ -2,7 +2,7 @@
 
 def _extractString(data):
     if data[0] not in "'\"":  # This isn't a string
-        return "", data
+        return "", 0
     idx = 1
     output = "\""
     is_hex = False
@@ -14,7 +14,7 @@ def _extractString(data):
     # at beginning or previous character is an escape slash
     while 1:
         if idx == len(data):  # Truncated?
-            return "Truncated", idx
+            raise ValueError("Input ended early")
         prev_char = cur_char
         cur_char = data[idx]
         if cur_char == quote_char and not prev_char == "\\":  # We're at the end quote
@@ -39,7 +39,7 @@ def _extractString(data):
                     escaped_num = ""
                     is_hex = False
                     continue
-            if quote_char == "'" and cur_char == "\"":
+            if quote_char == "'" and cur_char == "\"":  # Need to escape "s now
                 output += "\\"
             output += cur_char
             idx += 1
@@ -61,7 +61,7 @@ def fixJSON(js):
                     brace_stack.append(js[i])
                 elif js[i] in "]}":
                     if js[i] != {"[": "]", "{": "}"}[brace_stack.pop()]:
-                        return "Brace Mismatch", i  # Brace mismatch
+                        raise ValueError("Brace mismatch (char %d)" % i)
                 if js[i] == "{":  # Start of a hash, whatever comes next might be a key
                     might_be_a_key = True
                 output += js[i]
@@ -74,13 +74,13 @@ def fixJSON(js):
                 while js[i] != ":":
                     if js[i].isalnum() or js[i] in "_":
                         if keystr and js[i - 1] == " ":  # Can't have spaces in keys
-                            return "Key has space", i - 1
+                            raise ValueError("Key has a space (char %d)" % (i - 1))
                         keystr += js[i]
                     elif js[i] != " ":  # Some invalid character it seems
-                        return "Invalid character", i
+                        raise ValueError("Invalid character (char %d)" % i)
                     i += 1
                     if i == len(js):  # Truncated?
-                        return "Truncated", i
+                        raise ValueError("Input ended early")
                 keystr = keystr.strip()
                 output += "\"%s\":" % keystr.strip()
                 i += 1
@@ -97,7 +97,7 @@ def fixJSON(js):
                     numstr += js[i]
                     i += 1
                     if i == len(js):
-                        return "Truncated", i
+                        raise ValueError("Input ended early")
                 base = 10
                 if numstr[:2] == "0x":  # We're hex
                     base = 16
@@ -132,5 +132,7 @@ def fixJSON(js):
                     might_be_a_key = False
                 output += js[i]
                 i += 1
+    if len(brace_stack) != 0:
+        raise ValueError("Missing brace")
     return output
 
