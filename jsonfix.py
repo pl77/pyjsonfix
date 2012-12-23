@@ -39,6 +39,8 @@ def _extractString(data):
                     escaped_num = ""
                     is_hex = False
                     continue
+                elif quote_char == "'" and cur_char == "'":  # We don't need to escape ' now
+                    output = output[:-1]  # Get rid of the previous slash
             if quote_char == "'" and cur_char == "\"":  # Need to escape "s now
                 output += "\\"
             output += cur_char
@@ -66,7 +68,7 @@ def fixJSON(js):
                     might_be_a_key = True
                 output += js[i]
                 i += 1
-            elif might_be_a_key and js[i].isalpha():  # Might be a key without quotes
+            elif might_be_a_key and js[i].isalpha() or js[i] in "_":  # Might be a key without quotes
                 if js[i] == ",":
                     output += ","
                     i += 1
@@ -93,7 +95,9 @@ def fixJSON(js):
                 i += 5
             elif js[i].isdigit():  # We're a number.
                 numstr = ""
-                while js[i].lower() in "0123456789abcdefx.":
+                while js[i] not in ": ":
+                    if js[i] not in "0123456789abcdefx.":
+                        raise ValueError("Not a number")
                     numstr += js[i]
                     i += 1
                     if i == len(js):
