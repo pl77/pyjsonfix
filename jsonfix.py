@@ -96,7 +96,7 @@ def fixJSON(js):
             elif js[i].isdigit():  # We're a number.
                 numstr = ""
                 while js[i] not in "],:} ":
-                    if js[i] not in "0123456789abcdefx.":
+                    if js[i] not in "0123456789abcdefx." and js[i] != "\n":
                         raise ValueError("Not a number")
                     numstr += js[i]
                     i += 1
